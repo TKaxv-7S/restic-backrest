@@ -255,7 +255,10 @@ func TestScheduling(t *testing.T) {
 					UnixTimeEndMs:   farFuture.UnixMilli(),
 				},
 			},
-			wantTime: mustParseTime(t, "1970-01-02T08:00:00Z"),
+			// now is 1970-01-02T03:46:40Z, so the next UTC midnight is the 3rd.
+			// This must differ from the CLOCK_LOCAL case above: under TZ=America/Los_Angeles
+			// a UTC-clock schedule fires on UTC wall-clock, not local wall-clock.
+			wantTime: mustParseTime(t, "1970-01-03T00:00:00Z"),
 		},
 		{
 			name: "backup schedule cron since last run",

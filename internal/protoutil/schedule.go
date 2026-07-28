@@ -6,7 +6,7 @@ import (
 	"time"
 
 	v1 "github.com/garethgeorge/backrest/gen/go/v1"
-	"github.com/gitploy-io/cronexpr"
+	"github.com/hashicorp/cronexpr"
 )
 
 var ErrScheduleDisabled = errors.New("never")
@@ -51,14 +51,18 @@ func ResolveSchedule(sched *v1.Schedule, lastRan time.Time, curTime time.Time) (
 	case *v1.Schedule_MaxFrequencyHours:
 		return t.Add(time.Duration(s.MaxFrequencyHours) * time.Hour), nil
 	case *v1.Schedule_Cron:
-		cron, err := cronexpr.ParseInLocation(s.Cron, time.Now().Location().String())
+		cron, err := cronexpr.Parse(s.Cron)
 		if err != nil {
 			return time.Time{}, fmt.Errorf("parse cron %q: %w", s.Cron, err)
 		}
-		if cron.Next(t).IsZero() || cron.Next(t).Before(t) {
+		// Next evaluates the expression against t's own location, so the clock
+		// selection above (local / UTC / last run time) determines the zone the
+		// cron's wall-clock fields are interpreted in.
+		next := cron.Next(t)
+		if next.IsZero() || next.Before(t) {
 			return time.Time{}, fmt.Errorf("cron %q may be malformed, next scheduled time is in the past %v", s.Cron, t)
 		}
-		return cron.Next(t), nil
+		return next, nil
 	default:
 		return time.Time{}, fmt.Errorf("unknown schedule type: %T", s)
 	}
@@ -80,7 +84,7 @@ func NominalPeriod(sched *v1.Schedule, from time.Time) (time.Duration, error) {
 	case *v1.Schedule_MaxFrequencyHours:
 		return time.Duration(s.MaxFrequencyHours) * time.Hour, nil
 	case *v1.Schedule_Cron:
-		cron, err := cronexpr.ParseInLocation(s.Cron, from.Location().String())
+		cron, err := cronexpr.Parse(s.Cron)
 		if err != nil {
 			return 0, fmt.Errorf("parse cron %q: %w", s.Cron, err)
 		}
@@ -116,12 +120,15 @@ func ValidateSchedule(sched *v1.Schedule) error {
 		if s.Cron == "" {
 			return errors.New("empty cron expression")
 		}
-		cron, err := cronexpr.ParseInLocation(s.Cron, time.Now().Location().String())
+		cron, err := cronexpr.Parse(s.Cron)
 		if err != nil {
 			return fmt.Errorf("invalid cron %q: %w", s.Cron, err)
 		}
+		// A syntactically valid expression can still describe a date that never
+		// occurs (e.g. "0 0 30 2 *"); Next reports that as the zero time rather
+		// than an error, and such a schedule would silently never run.
 		if next := cron.Next(time.Now()); next.IsZero() || next.Year() < 2000 {
-			return fmt.Errorf("invalid cron %q: next scheduled time is invalid (check for DOW=7 usage)", s.Cron)
+			return fmt.Errorf("invalid cron %q: expression never matches a real date", s.Cron)
 		}
 	case nil:
 		return nil

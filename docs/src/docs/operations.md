@@ -40,6 +40,25 @@ Backrest provides flexible scheduling options for all operations through policie
 | Interval Days  | Run every N days                | Regular daily+ intervals                                  |
 | Interval Hours | Run every N hours               | Regular sub-daily intervals                               |
 
+### Cron Expression Syntax
+
+Cron schedules accept the standard five fields (minute, hour, day of month, month, day of week) with the usual `*`, `,`, `-`, and `/` operators. Day of week accepts `0`-`7` (both `0` and `7` mean Sunday) or the names `SUN`-`SAT`.
+
+The following extensions are also supported:
+
+| Syntax      | Meaning                                    | Example                                           |
+| ----------- | ------------------------------------------ | ------------------------------------------------- |
+| `#`         | Nth weekday of the month                   | `0 0 * * 1#1` runs on the first Monday             |
+| `L`         | Last day of the month                      | `0 0 L * *` runs on the last day of each month     |
+| `<dow>L`    | Last given weekday of the month            | `0 0 * * 5L` runs on the last Friday               |
+| `<dom>W`    | Nearest weekday to a day of the month      | `0 0 15W * *` runs on the weekday nearest the 15th |
+| `?`         | Same as `*`                                | `0 0 * * ?`                                        |
+| `@` aliases | `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly` | `@daily` runs at midnight              |
+
+Longer expressions are also accepted. Six fields adds a trailing year (`minute hour day-of-month month day-of-week year`), and seven fields adds both a leading seconds field and a trailing year (`second minute hour day-of-month month day-of-week year`).
+
+Expressions that are syntactically valid but can never match a real date, such as `0 0 30 2 *`, are rejected when the configuration is saved rather than silently never running.
+
 ### Schedule Clocks
 
 | Clock         | Description                    | Best For                                |
