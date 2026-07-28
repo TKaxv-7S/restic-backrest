@@ -1,21 +1,18 @@
 import {
   Operation,
   OperationEvent,
-  OperationEventSchema,
   OperationStatus,
 } from "../../gen/ts/v1/operations_pb";
 import { GetOperationsRequest } from "../../gen/ts/v1/service_pb";
-import { fromBinary, toBinary } from "@bufbuild/protobuf";
 import { backrestService } from "./client";
-import { createSharedStream } from "./streams/sharedStream";
+import { createTabStream } from "./streams/tabStream";
 
-// Operation-event stream, shared across tabs (see sharedStream). onResync means
-// reset + refetch; consumers load their own initial state via getOperations().
-export const operationsStream = createSharedStream<OperationEvent>({
+// Operation-event stream, held by the most recently focused tab (see
+// tabStream). onConnectOrResync means reset + refetch; consumers load their
+// own initial state via getOperations().
+export const operationsStream = createTabStream<OperationEvent>({
   name: "backrest:operations",
   connect: (signal) => backrestService.getOperationEvents({}, { signal }),
-  encode: (event) => toBinary(OperationEventSchema, event),
-  decode: (bytes) => fromBinary(OperationEventSchema, bytes),
 });
 
 export const getOperations = async (

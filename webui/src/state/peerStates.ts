@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { PeerState, PeerStateSchema } from "../../gen/ts/v1sync/syncservice_pb";
+import { PeerState } from "../../gen/ts/v1sync/syncservice_pb";
 import { Config } from "../../gen/ts/v1/config_pb";
-import { fromBinary, toBinary } from "@bufbuild/protobuf";
 import { syncStateService } from "../api/client";
-import { createSharedStream } from "../api/streams/sharedStream";
+import { createTabStream } from "../api/streams/tabStream";
 import { useConfig } from "../app/provider";
 
 // Type intersection to combine properties from Repo and RepoMetadata
@@ -27,15 +26,13 @@ const notifySubscribers = () => {
   }, 100);
 };
 
-// Peer-sync stream, shared across tabs (see sharedStream). Started only while a
-// consumer wants it and, via the config gate in useSyncStates, never opens for
-// the common no-peer user.
-const peerStatesStream = createSharedStream<PeerState>({
+// Peer-sync stream, held by the most recently focused tab (see tabStream).
+// Started only while a consumer wants it and, via the config gate in
+// useSyncStates, never opens for the common no-peer user.
+const peerStatesStream = createTabStream<PeerState>({
   name: "backrest:peer-states",
   connect: (signal) =>
     syncStateService.getPeerSyncStatesStream({ subscribe: true }, { signal }),
-  encode: (state) => toBinary(PeerStateSchema, state),
-  decode: (bytes) => fromBinary(PeerStateSchema, bytes),
 });
 
 // Reload the full current peer-state set from the API. A non-subscribing stream
